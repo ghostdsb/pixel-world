@@ -7,6 +7,7 @@ mod loading;
 mod menu;
 mod player;
 mod pipeline;
+mod camera;
 
 use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
@@ -14,12 +15,12 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 use crate::player::PlayerPlugin;
 
-use bevy::{app::App, render::{RenderApp, RenderSet, extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, Render}};
+use bevy::{app::App, render::{RenderApp, RenderSet, extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, Render, camera::CameraPlugin}};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use images::GameOfLifeImage;
-use pipeline::{GameOfLifePipeline, GameOfLifeNode, prepare_bind_group};
+use pipeline::{automata::{GameOfLifeImage, prepare_bind_group}, PipelinesPlugin};
+// use pipeline::{GameOfLifePipeline, GameOfLifeNode, prepare_bind_group};
 
 const SIM_SIZE: (u32, u32) = (1280, 720);
 const WORKGROUP_SIZE: u32 = 8;
@@ -46,37 +47,26 @@ impl Plugin for PixelWorldPlugin {
         // for operation on by the compute shader and display on the sprite.
         app
         .add_systems(Startup, setup)
-        .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default())
+        .add_plugins(camera::CameraPlugin)
+        .add_plugins(PipelinesPlugin);
         
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_systems(
-            Render,
-            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
-        );
-
-        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
-        render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph.add_node_edge(
-            "game_of_life",
-            bevy::render::main_graph::node::CAMERA_DRIVER,
-        );
-
         #[cfg(debug_assertions)]
         {
             app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
         }
     }
 
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.init_resource::<GameOfLifePipeline>();
-    }
+    // fn finish(&self, app: &mut App) {
+    //     let render_app = app.sub_app_mut(RenderApp);
+    //     // render_app.init_resource::<GameOfLifePipeline>();
+    // }
 }
 
 // add this in build, and first system on startup
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(mut commands: Commands, mut images_res: ResMut<Assets<Image>>) {
     let image = images::create_image(SIM_SIZE.0, SIM_SIZE.1);
-    let image = images.add(image);
+    let image = images_res.add(image);
 
     commands.spawn(SpriteBundle {
         sprite: Sprite {
@@ -88,5 +78,5 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     });
 
     commands.spawn(Camera2dBundle::default());
-    commands.insert_resource(images::GameOfLifeImage(image));
+    commands.insert_resource(pipeline::automata::GameOfLifeImage(image));
 }
