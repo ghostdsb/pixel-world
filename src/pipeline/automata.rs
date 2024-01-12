@@ -75,7 +75,7 @@ impl FromWorld for AutomataPipeline {
 }
 
 #[derive(Resource)]
-struct AutomataImageBindGroup(BindGroup);
+pub struct AutomataImageBindGroup(pub BindGroup);
 
 pub fn prepare_bind_group(
     mut commands: Commands,
@@ -149,7 +149,7 @@ impl render_graph::Node for AutomataNode {
 
         let mut pass = render_context
             .command_encoder()
-            .begin_compute_pass(&ComputePassDescriptor{label: Some("cpd")});
+            .begin_compute_pass(&ComputePassDescriptor{label: Some("cpd-automata")});
 
         pass.set_bind_group(0, texture_bind_group, &[]);
 

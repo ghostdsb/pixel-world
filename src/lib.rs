@@ -8,6 +8,7 @@ mod menu;
 mod player;
 mod pipeline;
 mod camera;
+mod input;
 
 use crate::actions::ActionsPlugin;
 use crate::audio::InternalAudioPlugin;
@@ -19,6 +20,7 @@ use bevy::{app::App, render::{RenderApp, RenderSet, extract_resource::ExtractRes
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
+use input::DrawingParams;
 use pipeline::{automata::{GameOfLifeImage, prepare_bind_group}, PipelinesPlugin};
 // use pipeline::{GameOfLifePipeline, GameOfLifeNode, prepare_bind_group};
 
@@ -48,7 +50,9 @@ impl Plugin for PixelWorldPlugin {
         app
         .add_systems(Startup, setup)
         .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default())
+        .add_plugins(ExtractResourcePlugin::<DrawingParams>::default())
         .add_plugins(camera::CameraPlugin)
+        .add_plugins(input::InputPlugin)
         .add_plugins(PipelinesPlugin);
         
         #[cfg(debug_assertions)]

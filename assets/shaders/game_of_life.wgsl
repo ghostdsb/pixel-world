@@ -38,8 +38,8 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
-    let source = vec2<i32>(400, 0);
-    textureStore(texture, source, SAND_COLOR);
+    // let source = vec2<i32>(400, 0);
+    // textureStore(texture, source, SAND_COLOR);
 
     let location = vec2<i32>(invocation_id.xy);
     let current_particle_color = textureLoad(texture, location);

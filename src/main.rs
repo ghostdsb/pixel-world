@@ -35,7 +35,6 @@ fn main() {
         ..default()
     }), PixelWorldPlugin)
 )
-// .add_plugins(PixelWorldPlugin)
     // .add_systems(Startup, setup)
     .add_systems(Startup, set_window_icon)
     .run();
