@@ -18,18 +18,16 @@ fn randomFloat(value: u32) -> f32 {
 
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
+    let air_color = vec4<f32>(0.02, 0.02, 0.02, 1.0);
+    let sand_color = vec4<f32>(0.8, 0.8, 0.2, 1.0);
+
     let location = vec2<i32>(invocation_id.xy);
-
-    var color = vec4<f32>(0.2, 0.8, 0.2, 1.0);
-
-    if(location.x < 500){
-        color = vec4<f32>(0.2, 0.2, 0.8, 1.0);
+    var color = air_color;
+    let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
+    let is_sand = randomNumber < 0.02;
+    if(is_sand){
+        color = sand_color;
     }
-
-    // let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
-    // let alive = randomNumber > 0.9;
-    // let color = vec4<f32>(f32(alive));
-
     textureStore(texture, location, color);
 }
 
