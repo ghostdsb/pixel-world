@@ -47,6 +47,7 @@ impl Plugin for PixelWorldPlugin {
         app
         .add_systems(Startup, setup)
         .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        
         let render_app = app.sub_app_mut(RenderApp);
         render_app.add_systems(
             Render,
