@@ -1,7 +1,7 @@
 const AIR_COLOR = vec4<f32>(0.02, 0.02, 0.02, 1.0);
 const SAND_COLOR = vec4<f32>(0.8, 0.8, 0.2, 1.0); 
 const WATER_COLOR = vec4<f32>(0.2, 0.2, 0.8, 1.0);
-const ROCK_COLOR = vec4<f32>(0.2, 0.6, 0.6, 1.0);
+const ROCK_COLOR = vec4<f32>(0.4, 0.4, 0.4, 1.0);
 
 @group(0) @binding(0)
 var texture: texture_storage_2d<rgba8unorm, read_write>;
@@ -26,9 +26,12 @@ fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_wo
     let location = vec2<i32>(invocation_id.xy);
     var color = AIR_COLOR;
     let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
-    let is_sand = randomNumber < 0.02;
+    let is_sand = randomNumber < 0.1;
     if(is_sand){
         color = SAND_COLOR;
+    }
+    if(location.y > 650){
+        color = ROCK_COLOR;
     }
     textureStore(texture, location, color);
 }
@@ -38,13 +41,22 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
     let location = vec2<i32>(invocation_id.xy);
     let current_particle_color = textureLoad(texture, location);
     var color = AIR_COLOR;
-    if(compare_vectors(current_particle_color, SAND_COLOR)){
-        // color = vec4<f32>(1.0, 1.0, 1.0, 1.0);
-        textureStore(texture, location, AIR_COLOR);
-        textureStore(texture, location + vec2<i32>(0, 1), SAND_COLOR);
+    if(compare_vectors(current_particle_color, AIR_COLOR)){
+
+    }else if(compare_vectors(current_particle_color, SAND_COLOR)){
+        let color_below = textureLoad(texture, location + vec2<i32>(0, 1));
+
+        if(compare_vectors(color_below, AIR_COLOR)){
+            textureStore(texture, location, AIR_COLOR);
+            textureStore(texture, location + vec2<i32>(0, 1), SAND_COLOR);
+        }else if(compare_vectors(color_below, SAND_COLOR)){
+
+        }else{
+            
+        }
     }
 }
 
 fn compare_vectors(v1: vec4<f32>, v2: vec4<f32>) -> bool {
-    return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
+    return distance(v1, v2) < 0.01;
 }
