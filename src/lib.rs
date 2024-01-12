@@ -2,7 +2,7 @@
 
 mod actions;
 mod audio;
-mod image;
+mod images;
 mod loading;
 mod menu;
 mod player;
@@ -14,12 +14,12 @@ use crate::loading::LoadingPlugin;
 use crate::menu::MenuPlugin;
 use crate::player::PlayerPlugin;
 
-use bevy::{app::App, render::{RenderApp, RenderSet, extract_resource::ExtractResourcePlugin}};
+use bevy::{app::App, render::{RenderApp, RenderSet, extract_resource::ExtractResourcePlugin, render_graph::RenderGraph, Render}};
 #[cfg(debug_assertions)]
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use image::GameOfLifeImage;
-use pipeline::GameOfLifePipeline;
+use images::GameOfLifeImage;
+use pipeline::{GameOfLifePipeline, GameOfLifeNode, prepare_bind_group};
 
 const SIM_SIZE: (u32, u32) = (1280, 720);
 const WORKGROUP_SIZE: u32 = 8;
@@ -42,15 +42,23 @@ pub struct PixelWorldPlugin;
 
 impl Plugin for PixelWorldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state::<GameState>()
-            .add_systems(Startup, setup)
-            .add_plugins((
-                LoadingPlugin,
-                // MenuPlugin,
-                ActionsPlugin,
-                InternalAudioPlugin,
-                // PlayerPlugin,
-            ));
+       // Extract the game of life image resource from the main world into the render world
+        // for operation on by the compute shader and display on the sprite.
+        app
+        .add_systems(Startup, setup)
+        .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.add_systems(
+            Render,
+            prepare_bind_group.in_set(RenderSet::PrepareBindGroups),
+        );
+
+        let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
+        render_graph.add_node("game_of_life", GameOfLifeNode::default());
+        render_graph.add_node_edge(
+            "game_of_life",
+            bevy::render::main_graph::node::CAMERA_DRIVER,
+        );
 
         #[cfg(debug_assertions)]
         {
@@ -59,19 +67,14 @@ impl Plugin for PixelWorldPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
-        render_app
-        .init_resource::<GameOfLifePipeline>()
-        .add_systems(Startup, pipeline::queue_bind_group.in_set(RenderSet::Queue))
-        .add_plugins(ExtractResourcePlugin::<GameOfLifeImage>::default());
+        let render_app = app.sub_app_mut(RenderApp);
+        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 
+// add this in build, and first system on startup
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let image = image::create_image(SIM_SIZE.0, SIM_SIZE.1);
+    let image = images::create_image(SIM_SIZE.0, SIM_SIZE.1);
     let image = images.add(image);
 
     commands.spawn(SpriteBundle {
@@ -84,5 +87,5 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     });
 
     commands.spawn(Camera2dBundle::default());
-    commands.insert_resource(image::GameOfLifeImage(image));
+    commands.insert_resource(images::GameOfLifeImage(image));
 }

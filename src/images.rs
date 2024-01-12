@@ -1,5 +1,3 @@
-// image.rs
-
 use bevy::{
     prelude::{Deref, Handle, Image, Resource},
     render::{

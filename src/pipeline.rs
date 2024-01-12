@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
-use bevy::{prelude::*, render::{render_resource::*, renderer::RenderDevice, render_asset::RenderAssets}};
+use bevy::{prelude::*, render::{render_resource::*, renderer::{RenderDevice, RenderContext}, render_asset::RenderAssets, render_graph}};
 
-use crate::image::GameOfLifeImage;
+use crate::{images::GameOfLifeImage, SIM_SIZE, WORKGROUP_SIZE};
 
 #[derive(Resource)]
 pub struct GameOfLifePipeline {
@@ -11,14 +11,10 @@ pub struct GameOfLifePipeline {
     texture_bind_group_layout: BindGroupLayout,
 }
 
-#[derive(Resource)]
-struct GameOfLifeImageBindGroup(pub BindGroup);
-
 impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let texture_bind_group_layout =
-            world
-                .get_resource::<RenderDevice>().unwrap()
+            world.resource::<RenderDevice>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: Some("Game of Life Bind Group Layout"),
                     entries: &[BindGroupLayoutEntry {
@@ -65,23 +61,104 @@ impl FromWorld for GameOfLifePipeline {
     }
 }
 
-pub fn queue_bind_group(
+#[derive(Resource)]
+struct GameOfLifeImageBindGroup(BindGroup);
+
+pub fn prepare_bind_group(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
 ) {
-    dbg!(&game_of_life_image);
+    // dbg!(&game_of_life_image);
     let view = &gpu_images.get(&game_of_life_image.0).unwrap();
 
     let bind_group = render_device.create_bind_group(
          Some("Game of Life Bind Group"),
          &pipeline.texture_bind_group_layout,
-         &[BindGroupEntry {
-            binding: 0,
-            resource: BindingResource::TextureView(&view.texture_view),
-        }],
+         &BindGroupEntries::single(&view.texture_view),
     );
     commands.insert_resource(GameOfLifeImageBindGroup(bind_group));
+}
+
+pub enum GameOfLifeState{
+    Loading,
+    Init,
+    Update
+}
+
+pub struct GameOfLifeNode{
+    state: GameOfLifeState
+}
+
+impl Default for GameOfLifeNode{
+    fn default() -> Self {
+        Self { state: GameOfLifeState::Loading }
+    }
+}
+
+impl render_graph::Node for GameOfLifeNode {
+    fn update(&mut self, world: &mut World) {
+        let pipeline = world.resource::<GameOfLifePipeline>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+
+        // if the corresponding pipeline has loaded, transition to the next stage
+        match self.state {
+            GameOfLifeState::Loading => {
+                if let CachedPipelineState::Ok(_) =
+                    pipeline_cache.get_compute_pipeline_state(pipeline.init_pipeline)
+                {
+                    self.state = GameOfLifeState::Init;
+                }
+            }
+            GameOfLifeState::Init => {
+                if let CachedPipelineState::Ok(_) =
+                    pipeline_cache.get_compute_pipeline_state(pipeline.update_pipeline)
+                {
+                    self.state = GameOfLifeState::Update;
+                }
+            }
+            GameOfLifeState::Update => {}
+        }
+    }
+
+    fn run(
+        &self,
+        _graph: &mut render_graph::RenderGraphContext,
+        render_context: &mut RenderContext,
+        world: &World,
+    ) -> Result<(), render_graph::NodeRunError> {
+        // dbg!(&world.resource::<GameOfLifeImageBindGroup>().0);
+        let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
+        let pipeline_cache = world.resource::<PipelineCache>();
+        let pipeline = world.resource::<GameOfLifePipeline>();
+
+        let mut pass = render_context
+            .command_encoder()
+            .begin_compute_pass(&ComputePassDescriptor{label: Some("cpd")});
+
+        pass.set_bind_group(0, texture_bind_group, &[]);
+
+        // select the pipeline based on the current state
+        match self.state {
+            GameOfLifeState::Loading | GameOfLifeState::Update=> {}
+            GameOfLifeState::Init => {
+                let init_pipeline = pipeline_cache
+                    .get_compute_pipeline(pipeline.init_pipeline)
+                    .unwrap();
+                pass.set_pipeline(init_pipeline);
+                pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
+            }
+            // GameOfLifeState::Update => {
+            //     let update_pipeline = pipeline_cache
+            //         .get_compute_pipeline(pipeline.update_pipeline)
+            //         .unwrap();
+            //     pass.set_pipeline(update_pipeline);
+            //     pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
+            // }
+        }
+
+        Ok(())
+    }
 }
