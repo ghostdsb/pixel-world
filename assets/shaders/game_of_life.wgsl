@@ -25,21 +25,21 @@ fn randomFloat(value: u32) -> f32 {
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(invocation_id.xy);
     var color = AIR_COLOR;
-    let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
-    let is_sand = randomNumber < 0.3;
-    if(is_sand){
-        // color = SAND_COLOR;
-    }
-    if(location.y > 650){
-        color = ROCK_COLOR;
-    }
+    // let randomNumber = randomFloat(invocation_id.y * num_workgroups.x + invocation_id.x);
+    // let is_sand = randomNumber < 0.3;
+    // if(is_sand){
+    //     // color = SAND_COLOR;
+    // }
+    // if(location.y > 650){
+    //     color = ROCK_COLOR;
+    // }
     textureStore(texture, location, color);
 }
 
 @compute @workgroup_size(8, 8, 1)
 fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
-    let source = vec2<i32>(400, 0);
-    textureStore(texture, source, SAND_COLOR);
+    // let source = vec2<i32>(400, 0);
+    // textureStore(texture, source, SAND_COLOR);
 
     let location = vec2<i32>(invocation_id.xy);
     let current_particle_color = textureLoad(texture, location);
@@ -65,6 +65,52 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
             }
         }else{
             
+        }
+    }else if(compare_vectors(current_particle_color, WATER_COLOR)){
+        let color_below = textureLoad(texture, location + vec2<i32>(0, 1));
+        let randomNumber = randomFloat(invocation_id.y + invocation_id.x);
+        var x = 1;
+        if(randomNumber < 0.5){
+            x = -1;
+        }
+        let color_sideways = textureLoad(texture, location + vec2<i32>(x, 0));
+        let color_diagonally_below = textureLoad(texture, location + vec2<i32>(x, 1));
+
+        if(compare_vectors(color_below, AIR_COLOR)){
+            textureStore(texture, location, AIR_COLOR);
+            textureStore(texture, location + vec2<i32>(0, 1), WATER_COLOR);
+        }else if(compare_vectors(color_below, WATER_COLOR)){
+            // if(compare_vectors(color_below, WATER_COLOR)){
+                if(compare_vectors(color_diagonally_below, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 1), WATER_COLOR);
+                }else if(compare_vectors(color_sideways, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 0), WATER_COLOR);
+                }
+            // }else{
+                // 
+            // }
+        }else if(compare_vectors(color_below, SAND_COLOR)){
+            // if(compare_vectors(color_below, WATER_COLOR)){
+                if(compare_vectors(color_diagonally_below, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 1), WATER_COLOR);
+                }else if(compare_vectors(color_sideways, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 0), WATER_COLOR);
+                }
+            // }else{
+                // 
+            // }
+        }else{
+            if(compare_vectors(color_diagonally_below, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 1), WATER_COLOR);
+                }else if(compare_vectors(color_sideways, AIR_COLOR)){
+                    textureStore(texture, location, AIR_COLOR);
+                    textureStore(texture, location + vec2<i32>(x, 0), WATER_COLOR);
+                }
         }
     }
 }

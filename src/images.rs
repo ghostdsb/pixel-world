@@ -1,13 +1,9 @@
 use bevy::{
-    prelude::{Deref, Handle, Image, Resource},
-    render::{
-        extract_resource::ExtractResource,
-        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
-    },
+    prelude::Image,
+    render::
+        render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages}
+    ,
 };
-
-#[derive(Resource, Clone, Deref, ExtractResource, Debug)]
-pub struct GameOfLifeImage(pub Handle<Image>);
 
 pub fn create_image(width: u32, height: u32) -> Image {
     let mut image = Image::new_fill(
