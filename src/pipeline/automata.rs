@@ -2,7 +2,9 @@ use std::borrow::Cow;
 
 use bevy::{ecs::{system::{Resource, Commands, Res}, world::{FromWorld, World}, schedule::IntoSystemConfigs}, prelude::Deref, render::{extract_resource::ExtractResource, texture::Image, RenderSet, render_resource::{CachedComputePipelineId, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStages, BindingType, TextureFormat, StorageTextureAccess, TextureViewDimension, PipelineCache, ComputePipelineDescriptor, BindGroup, BindGroupEntries, CachedPipelineState, ComputePassDescriptor}, renderer::{RenderDevice, RenderContext}, render_asset::RenderAssets, render_graph, RenderApp, Render}, asset::{Handle, AssetServer}, app::{Plugin, App, Startup}};
 
-use crate::{SIM_SIZE, WORKGROUP_SIZE};
+use crate::{SIM_SIZE, WORKGROUP_SIZE, input::DrawingParams};
+
+use super::draw::DrawPipeline;
 
 #[derive(Resource, Clone, Deref, ExtractResource, Debug)]
 pub struct GameOfLifeImage(pub Handle<Image>);
@@ -12,6 +14,7 @@ impl Plugin for AutomataPipelinePlugin {
     fn build(&self, render_app: &mut App) {
         render_app
             .init_resource::<AutomataPipeline>()
+            .init_resource::<DrawPipeline>()
             .add_systems(Render, prepare_bind_group.in_set(RenderSet::PrepareBindGroups));
     }
 }
@@ -152,23 +155,25 @@ impl render_graph::Node for AutomataNode {
             .begin_compute_pass(&ComputePassDescriptor{label: Some("cpd-automata")});
 
         pass.set_bind_group(0, texture_bind_group, &[]);
-
+        let params = &world.resource::<DrawingParams>();
         // select the pipeline based on the current state
-        match self.state {
-            AutomataState::Loading => {}
-            AutomataState::Init => {
-                let init_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.init_pipeline)
-                    .unwrap();
-                pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
-            }
-            AutomataState::Update => {
-                let update_pipeline = pipeline_cache
-                    .get_compute_pipeline(pipeline.update_pipeline)
-                    .unwrap();
-                pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
+        if !params.is_erasing{
+            match self.state {
+                AutomataState::Loading => {}
+                AutomataState::Init => {
+                    let init_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.init_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(init_pipeline);
+                    pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
+                }
+                AutomataState::Update => {
+                    let update_pipeline = pipeline_cache
+                        .get_compute_pipeline(pipeline.update_pipeline)
+                        .unwrap();
+                    pass.set_pipeline(update_pipeline);
+                    pass.dispatch_workgroups(SIM_SIZE.0 / WORKGROUP_SIZE, SIM_SIZE.1 / WORKGROUP_SIZE, 1);
+                }
             }
         }
 

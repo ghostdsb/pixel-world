@@ -1,10 +1,19 @@
 use std::borrow::Cow;
 
-use bevy::{app::Plugin, ecs::{system::{Resource, Commands, Res}, world::{FromWorld, World}, schedule::IntoSystemConfigs}, render::{render_resource::{CachedComputePipelineId, BindGroupLayout, PipelineCache, BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStages, BindingType, StorageTextureAccess, TextureFormat, TextureViewDimension, ComputePipelineDescriptor, PushConstantRange, BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, CachedPipelineState, ComputePassDescriptor}, renderer::{RenderDevice, RenderContext}, Render, render_asset::RenderAssets, texture::Image, RenderSet, render_graph}, asset::AssetServer, math::Vec2};
+use bevy::{app::Plugin, ecs::{system::{Resource, Commands, Res}, world::{FromWorld, World}, schedule::IntoSystemConfigs}, render::{render_resource::{CachedComputePipelineId, BindGroupLayout, PipelineCache, BindGroupLayoutDescriptor, BindGroupLayoutEntry, ShaderStages, BindingType, StorageTextureAccess, TextureFormat, TextureViewDimension, ComputePipelineDescriptor, PushConstantRange, BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, CachedPipelineState, ComputePassDescriptor}, renderer::{RenderDevice, RenderContext}, Render, render_asset::RenderAssets, texture::Image, RenderSet, render_graph}, asset::AssetServer, math::Vec2, prelude::{Vec3, Vec4}};
 
-use crate::{input::DrawingParams, GameOfLifeImage, SIM_SIZE, WORKGROUP_SIZE};
+use crate::{input::DrawingParams, GameOfLifeImage, SIM_SIZE, WORKGROUP_SIZE, CurrentElement};
 
 use super::automata::AutomataImageBindGroup;
+
+// const AIR_COLOR = vec4<f32>(0.02, 0.02, 0.02, 1.0);
+// const SAND_COLOR = vec4<f32>(0.8, 0.8, 0.2, 1.0); 
+// const WATER_COLOR = vec4<f32>(0.2, 0.2, 0.8, 1.0);
+// const ROCK_COLOR = vec4<f32>(0.4, 0.4, 0.4, 1.0);
+const AIR: Vec4 = Vec4::new(0.02, 0.02, 0.02, 1.0);
+const SAND: Vec4 = Vec4::new(0.8, 0.8, 0.2, 1.0);
+const WATER: Vec4 = Vec4::new(0.2, 0.2, 0.8, 1.0);
+const ROCK: Vec4 = Vec4::new(0.4, 0.4, 0.4, 1.0);
 
 pub struct DrawPipelinePlugin;
 
@@ -22,14 +31,16 @@ pub struct DrawPushConstants {
     draw_start: [f32; 2],
     draw_end: [f32; 2],
     draw_radius: f32,
+    element: u32,
 }
 
 impl DrawPushConstants {
-    pub fn new(draw_start: Vec2, draw_end: Vec2, draw_radius: f32) -> Self {
+    pub fn new(draw_start: Vec2, draw_end: Vec2, draw_radius: f32, element: u32) -> Self {
         Self {
             draw_radius,
             draw_end: draw_end.to_array(),
             draw_start: draw_start.to_array(),
+            element,
         }
     }
 }
@@ -164,6 +175,18 @@ impl render_graph::Node for AutomataDrawNode {
 
             pass.set_bind_group(0, texture_bind_group, &[]);
 
+            let element_index = if params.element == CurrentElement::AIR{
+                0
+            }else if params.element == CurrentElement::SAND{
+                1
+            }else if params.element == CurrentElement::WATER{
+                2
+            }else if params.element == CurrentElement::ROCK{
+                3
+            }else{
+                0
+            };
+
             // select the pipeline based on the current state
             match self.state {
                 AutomataDrawState::Loading => {}
@@ -173,8 +196,8 @@ impl render_graph::Node for AutomataDrawNode {
                         .unwrap();
 
                     let pc =
-                        DrawPushConstants::new(params.mouse_pos, params.prev_mouse_pos, 10.0);
-
+                        DrawPushConstants::new(params.mouse_pos, params.prev_mouse_pos, 10.0, element_index);
+                    
                     pass.set_pipeline(draw_pipeline);
                     pass.set_bind_group(0, draw_bind_group, &[]);
                     pass.set_push_constants(0, bytemuck::cast_slice(&[pc]));

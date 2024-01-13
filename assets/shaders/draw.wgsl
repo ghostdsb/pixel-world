@@ -1,9 +1,13 @@
+const AIR_COLOR = vec4<f32>(0.02, 0.02, 0.02, 1.0);
 const SAND_COLOR = vec4<f32>(0.8, 0.8, 0.2, 1.0); 
+const WATER_COLOR = vec4<f32>(0.2, 0.2, 0.8, 1.0);
+const ROCK_COLOR = vec4<f32>(0.4, 0.4, 0.4, 1.0);
 
 struct PushConstants {
     draw_start: vec2<f32>,
     draw_end: vec2<f32>,
     draw_radius: f32,
+    element: u32,
 }
 var<push_constant> pc: PushConstants;
 
@@ -19,11 +23,23 @@ fn draw(@builtin(global_invocation_id) invocation_id: vec3<u32>)
         return ;
     }
 
+    var color = AIR_COLOR;
+
+    if(pc.element == 0u){
+        color = AIR_COLOR;
+    }else if(pc.element == 1u){
+        color = SAND_COLOR;
+    }else if(pc.element == 2u){
+        color = WATER_COLOR;
+    }else{
+        color = ROCK_COLOR;
+    }
+
     // Draw circle
     if (pc.draw_radius > 0.0) {
         let pos = vec2<f32>(pixel);
         let point_on_line = closest_point_on_line(pc.draw_start, pc.draw_end, pos);
-        draw_particle_circle(pos, point_on_line, pc.draw_radius);
+        draw_particle_circle(pos, point_on_line, pc.draw_radius, color);
     }
 }
 
@@ -41,7 +57,7 @@ fn closest_point_on_line(v: vec2<f32>, w: vec2<f32>, p: vec2<f32>) -> vec2<f32> 
     return projection;
 }
 
-fn draw_particle_circle(pos: vec2<f32>, draw_pos: vec2<f32>, radius: f32) {
+fn draw_particle_circle(pos: vec2<f32>, draw_pos: vec2<f32>, radius: f32, color: vec4<f32>) {
     let y_start = draw_pos.y - radius;
     let y_end = draw_pos.y + radius;
     let x_start = draw_pos.x - radius;
@@ -50,7 +66,7 @@ fn draw_particle_circle(pos: vec2<f32>, draw_pos: vec2<f32>, radius: f32) {
         let diff = pos - draw_pos;
         let dist = length(diff);
         if (round(dist) <= radius) {
-            textureStore(texture, vec2<i32>(pos), SAND_COLOR);
+            textureStore(texture, vec2<i32>(pos), color);
         }
     }
 }

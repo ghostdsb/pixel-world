@@ -27,6 +27,14 @@ use pipeline::{automata::{GameOfLifeImage, prepare_bind_group}, PipelinesPlugin}
 const SIM_SIZE: (u32, u32) = (1280, 720);
 const WORKGROUP_SIZE: u32 = 8;
 
+#[derive(Clone, Default, PartialEq)]
+pub enum CurrentElement{
+    #[default] AIR,
+    SAND,
+    WATER,
+    ROCK
+}
+
 // This example game uses States to separate logic
 // See https://bevy-cheatbook.github.io/programming/states.html
 // Or https://github.com/bevyengine/bevy/blob/main/examples/ecs/state.rs
